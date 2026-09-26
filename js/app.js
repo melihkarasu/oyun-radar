@@ -1,4 +1,4 @@
-const WISHLIST_KEY = '***';
+const WISHLIST_KEY = 'oyunradar_wishlist_v1';
         let currentTab = 'free'; // 'free' | 'deals'
         let selectedStores = ['1', '25']; // Steam + Epic
         let currentDealsList = [];
@@ -67,7 +67,7 @@ const WISHLIST_KEY = '***';
         async function fetchFreeGames() {
           showLoading(true);
           try {
-            const res = await fetch('/api/oyun/free');
+            const res = await fetch('https://www.gamerpower.com/api/giveaways?platform=pc');
             const data = await res.json();
             if (Array.isArray(data)) {
               currentDealsList = data;
@@ -84,7 +84,7 @@ const WISHLIST_KEY = '***';
           showLoading(true);
           try {
             const storesParam = selectedStores.join(',');
-            let url = `/api/oyun/deals?stores=${encodeURIComponent(storesParam)}`;
+            let url = `https://www.cheapshark.com/api/1.0/deals?storeID=${encodeURIComponent(storesParam)}&pageSize=28&sortBy=Deal%20Rating`;
             if (searchTitle) url += `&title=${encodeURIComponent(searchTitle)}`;
 
             const res = await fetch(url);
@@ -132,7 +132,8 @@ const WISHLIST_KEY = '***';
           empty.classList.add('hidden');
           countEl.innerText = `${list.length} adet %100 ücretsiz oyun aktif`;
 
-          grid.innerHTML = list.map(item => {
+          window.__renderedList = list;
+          grid.innerHTML = list.map((item, idx) => {
             const worth = item.worth || 'Ücretsiz';
             const platforms = item.platforms || 'PC';
             const img = item.image || item.thumbnail;
@@ -159,7 +160,7 @@ const WISHLIST_KEY = '***';
                   <a href="${url}" target="_blank" rel="noopener noreferrer" class="px-3 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-bold text-xs transition flex items-center gap-1">
                     <span>🎁</span> Oyunu Al &rarr;
                   </a>
-                  <button onclick="saveToWishlist('${item.title.replace(/'/g, "\\\\'")}', '0.00', '${worth}', '${img}', '${url}')" class="p-1.5 text-mistral-slate hover:text-amber-400 transition" title="İstek Listeme Kaydet">
+                  <button onclick="saveToWishlistRendered(${idx}, 'free', '${worth}')"" class="p-1.5 text-mistral-slate hover:text-amber-400 transition" title="İstek Listeme Kaydet">
                     🔖
                   </button>
                 </div>
@@ -191,7 +192,8 @@ const WISHLIST_KEY = '***';
             '11': { name: 'Humble', icon: '📦' }
           };
 
-          grid.innerHTML = list.map(d => {
+          window.__renderedList = list;
+          grid.innerHTML = list.map((d, idx) => {
             const savings = Math.round(parseFloat(d.savings));
             const store = storeNames[d.storeID] || { name: 'Mağaza', icon: '🎮' };
             const dealUrl = `https://www.cheapshark.com/redirect?dealID=${encodeURIComponent(d.dealID)}`;
@@ -222,13 +224,37 @@ const WISHLIST_KEY = '***';
                   <a href="${dealUrl}" target="_blank" rel="noopener noreferrer" class="px-3 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-bold text-xs transition flex items-center gap-1">
                     <span>Fırsatı Gör</span> &rarr;
                   </a>
-                  <button onclick="saveToWishlist('${d.title.replace(/'/g, "\\\\'")}', '$${d.salePrice}', '$${d.normalPrice}', '${d.thumb}', '${dealUrl}')" class="p-1.5 text-mistral-slate hover:text-amber-400 transition" title="İstek Listeme Kaydet">
+                  <button onclick="saveToWishlistRendered(${idx}, 'deals')"" class="p-1.5 text-mistral-slate hover:text-amber-400 transition" title="İstek Listeme Kaydet">
                     🔖
                   </button>
                 </div>
               </div>
             `;
           }).join('');
+        }
+
+        // İndeks-tabanlı güvenli istek listesi kaydı (apostroflu oyun adları HTML'i kıramaz)
+        function saveToWishlistRendered(idx, source, worth) {
+          const item = (window.__renderedList || [])[idx];
+          if (!item) return;
+
+          if (source === 'free') {
+            saveToWishlist(
+              item.title,
+              '0.00',
+              worth || item.worth || 'Ücretsiz',
+              item.image || item.thumbnail || '',
+              item.open_giveaway_url || '#'
+            );
+          } else {
+            saveToWishlist(
+              item.title,
+              '$' + item.salePrice,
+              '$' + item.normalPrice,
+              item.thumb || '',
+              'https://www.cheapshark.com/redirect?dealID=' + encodeURIComponent(item.dealID)
+            );
+          }
         }
 
         // 4. İstek Listesi (Wishlist & LocalStorage)
